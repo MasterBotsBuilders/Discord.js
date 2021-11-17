@@ -1,58 +1,102 @@
+
+  
+const { MessageEmbed } = require('discord.js');
+const db = require('quick.db')
+const { ownerID } = require("../../owner.json")
+
 module.exports = {
-    name: 'ban',
-    description: 'Ban Command',
-    usage: 'Used to ban the naughty.',
-    execute(message, args, Discord) {
-        if (message.member.hasPermission("BAN_MEMBERS")) {
-            // Assuming we mention someone in the message, this will return the user
-            // Read more about mentions over at http//discord.js.org/#/docs/main/master/class/MessageMentions
-            const user = message.mentions.users.first();
-            // If we have a user mentioned
-            if (user) {
-                // Now we get the member from the user
-                const member = message.guild.member(user);
+    config: {
+        name: "ban",
+        aliases: ["b", "banish"],
+        description: "Bans the user",
+        usage: "[name | nickname | mention | ID] <reason> (optional)",
+    },
+    run: async (bot, message, args) => {
+       
+       const e1 =  new MessageEmbed()
 
-                // If the member is in the guild
-                if (member) {
-                    /**
-                     * Kick the member
-                     * Make sure you run this on a member, not a user!
-                     * There are big differences between a user and a member
-                     */
+       .setDescription(`**You Dont Have The Permissions To Ban Users! - [BAN_MEMBERS]**`)
+      .setColor("YELLOW")
 
-                    member
+        const e2 =  new MessageEmbed()
 
-                        .ban()
-                        .then(() => {
-                            // We let the message author know we were able to ban the person
-                            const banSuccessDM = new Discord.MessageEmbed()
-                                .setColor('RANDOM')
-                                .setTitle('BANNED!')
-                                .setDescription(`You have been banned forever`)
-                                .setFooter(`Moderator : @${message.author.tag}`)
-                                .setTimestamp();
-                            member.send(banSuccessDM);
-                            message.reply(`Successfully Banned ${user.tag}`);
+       .setDescription(`Please Provide A User To Ban`)
+      
+       .setColor("YELLOW")
 
-                        })
-                        .catch(err => {
-                            // An error happened
-                            // This is generally due to the bot not being able to kick the member,
-                            // either due to missing permissions or role hierarchy
-                            message.reply('I was unable to ban the member');
-                            // Log the error
-                            console.error(err);
-                        });
-                } else {
-                    // The mentioned user isn't in this guild
-                    message.reply("That user isn't in this guild!");
-                }
-                // Otherwise, if no user was mentioned
-            } else {
-                message.reply("You didn't mention the user to ban!");
+       const e3 =  new MessageEmbed()
+
+       .setDescription(`User Is Not In The Guild`)
+      
+       .setColor("YELLOW")
+
+       const e4 =  new MessageEmbed()
+
+       .setDescription(`You Cannot Ban Yourself`)
+      
+       .setColor("YELLOW")
+
+       const e5 =  new MessageEmbed()
+
+       .setDescription(`Cant Ban That User`)
+      
+       .setColor("YELLOW")
+       
+        try {
+            if (!message.member.hasPermission("BAN_MEMBERS") && !ownerID .includes(message.author.id)) 
+            
+            return message.channel.send("");
+            if (!message.guild.me.hasPermission("BAN_MEMBERS")) return message.channel.send(e1);
+            if (!args[0]) return message.channel.send(e2)
+
+            let banMember = message.mentions.members.first() || message.guild.members.cache.get(args[0]) || message.guild.members.cache.find(r => r.user.username.toLowerCase() === args[0].toLocaleLowerCase()) || message.guild.members.cache.find(ro => ro.displayName.toLowerCase() === args[0].toLocaleLowerCase());
+            if (!banMember) return message.channel.send(e3);
+            if (banMember === message.member) return message.channel.send(e4)
+
+            var reason = args.slice(1).join(" ");
+
+            if (!banMember.bannable) return message.channel.send(e5)
+            try {
+            message.guild.members.ban(banMember)
+            banMember.send(`**Hello, You Have Been Banned From ${message.guild.name} for - ${reason || "No Reason"}**`).catch(() => null)
+            } catch {
+                message.guild.members.ban(banMember)
             }
-        } else {
-            message.reply("You cannot use this command!")
+            if (reason) {
+            var sembed = new MessageEmbed()
+                .setColor("GREEN")
+                .setDescription(`**${banMember.user.username}** has been banned for ${reason}`)
+            message.channel.send(sembed)
+            } else {
+                var sembed2 = new MessageEmbed()
+                .setColor("GREEN")
+                .setDescription(`**${banMember.user.username}** has been banned`)
+            message.channel.send(sembed2)
+            }
+            let channel = db.fetch(`modlog_${message.guild.id}`)
+            if (channel == null) return;
+
+            if (!channel) return;
+
+            const embed = new MessageEmbed()
+                .setAuthor(`${message.guild.name} Modlogs`, message.guild.iconURL())
+                .setColor("#ff0000")
+                .setThumbnail(banMember.user.displayAvatarURL({ dynamic: true }))
+                .setFooter(message.guild.name, message.guild.iconURL())
+                .addField("**Moderation**", "ban")
+                .addField("**Banned**", banMember.user.username)
+                .addField("**ID**", `${banMember.id}`)
+                .addField("**Banned By**", message.author.username)
+                .addField("**Reason**", `${reason || "**No Reason**"}`)
+                .addField("**Date**", message.createdAt.toLocaleString())
+                .setTimestamp();
+
+            var sChannel = message.guild.channels.cache.get(channel)
+            if (!sChannel) return;
+            sChannel.send(embed)
+        } catch (e) {
+            return message.channel.send(`**${e.message}**`)
         }
     }
-}
+};
+
